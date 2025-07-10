@@ -1,0 +1,36 @@
+# Python virtual environments and cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Airflow logs, configs, and runtime files
+logs/
+airflow-webserver.pid
+airflow.cfg
+
+# DAGs cache
+dags/__pycache__/
+
+# Artifacts and temp files
+artifacts/
+ERROR
+[internal]
+
+# Spark JARs
+spark-jars/
+
+# Terraform state and cache
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Environment variables and secrets
+.env
+gcp/credentials.json
+
+# VSCode and editor settings (optional, but common)
+.vscode/
+.idea/
+*.swp

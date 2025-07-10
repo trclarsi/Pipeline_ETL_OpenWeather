@@ -1,0 +1,6 @@
+requests
+google-cloud-storage
+google-auth-oauthlib
+grpcio
+apache-airflow-providers-docker # Pour qu'Airflow puisse lancer des conteneurs
+#pyspark==3.5.1

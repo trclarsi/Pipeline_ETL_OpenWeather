@@ -1,0 +1,50 @@
+FROM apache/spark:3.5.1-python3
+
+# Installer les dépendances système
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Installer les dépendances Python
+RUN pip install --no-cache-dir \
+    google-cloud-bigquery \
+    google-cloud-storage \
+    pandas \
+    pyarrow
+
+# Créer le répertoire pour les JARs
+RUN mkdir -p /app/spark-jars
+
+# Télécharger le connecteur GCS
+RUN wget -O /app/spark-jars/gcs-connector-hadoop3-latest.jar \
+    https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar
+
+# Télécharger le connecteur BigQuery (optionnel)
+RUN wget -O /app/spark-jars/spark-bigquery-with-dependencies_2.12-0.29.0.jar \
+    https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_2.12/0.29.0/spark-bigquery-with-dependencies_2.12-0.29.0.jar
+
+# Vérifier que les fichiers existent
+RUN ls -la /app/spark-jars/
+
+# Répertoire de travail
+WORKDIR /app
+
+# Copier le script de transformation
+COPY src/transform.py .
+
+# S'assurer que le script est exécutable
+RUN chmod +x transform.py
+
+ENV PATH="/opt/spark/bin:${PATH}"
+
+ENTRYPOINT []
+# Changer vers l'utilisateur spark
+USER spark
+
+# Point d'entrée avec les connecteurs
+CMD ["spark-submit", "--master", "local[*]", \
+     "--jars", "/app/spark-jars/gcs-connector-hadoop3-latest.jar,/app/spark-jars/spark-bigquery-with-dependencies_2.12-0.29.0.jar", \
+     "transform.py"]

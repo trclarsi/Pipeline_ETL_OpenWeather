@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# On installe les librairies Python nécessaires
+RUN pip install --no-cache-dir requests google-cloud-storage
+
+# On copie uniquement le script d'extraction
+COPY src/extract.py .
