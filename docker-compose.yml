@@ -1,6 +1,22 @@
-# Fichier : docker-compose.yml
-version: '3.8'
+# docker-compose.yml - Version Finale avec Correction des Permissions
 name: airflow-weather-pipeline
+
+x-airflow-common: &airflow-common
+  # On utilise l'image officielle d'Airflow
+  image: apache/airflow:2.9.2-python3.11
+  environment:
+    # --- LA CORRECTION CLÉ ---
+    # On spécifie l'ID de l'utilisateur qui doit posséder les dossiers.
+    # L'entrypoint de l'image officielle utilisera cette variable.
+    - AIRFLOW_UID=50000 
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - /var/run/docker.sock:/var/run/docker.sock
 
 services:
   postgres:
@@ -12,109 +28,32 @@ services:
       - POSTGRES_DB=airflow
     volumes:
       - airflow_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 5s
-      retries: 5
-    restart: always
 
-  # Service pour construire l'image personnalisée
-  custom-airflow-image:
-    image: custom-airflow-weather:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    depends_on:
-      - postgres
-
-  # Service d'initialisation de la base de données
   airflow-init:
-    image: custom-airflow-weather:latest
+    <<: *airflow-common
     container_name: airflow_init
     depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
-      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
+      - postgres
     command: >
-      bash -c "
-        airflow db migrate &&
-        airflow users create 
-          --username admin 
-          --password admin 
-          --firstname Admin 
-          --lastname User 
-          --role Admin 
-          --email admin@example.com || true
-      "
-    restart: "no"
+      bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true"
 
-  # Scheduler Airflow
   airflow-scheduler:
-    image: custom-airflow-weather:latest
+    <<: *airflow-common
     container_name: airflow_scheduler
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
-      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: scheduler
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $$(hostname)"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      - airflow-init
+    command: airflow scheduler
+    restart: on-failure
 
-  # Webserver Airflow
   airflow-webserver:
-    image: custom-airflow-weather:latest
+    <<: *airflow-common
     container_name: airflow_webserver
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
-      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-      - /var/run/docker.sock:/var/run/docker.sock
+      - airflow-scheduler
     ports:
       - "8080:8080"
-    command: webserver
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    command: airflow webserver
+    restart: on-failure
 
 volumes:
   airflow_postgres_data:
