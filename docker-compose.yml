@@ -1,23 +1,26 @@
-# docker-compose.yml - Version Finale avec Correction des Permissions
-name: airflow-weather-pipeline
+version: '3.8'
 
 x-airflow-common: &airflow-common
-  # On utilise l'image officielle d'Airflow
   image: apache/airflow:2.9.2-python3.11
   environment:
-    # --- LA CORRECTION CLÉ ---
-    # On spécifie l'ID de l'utilisateur qui doit posséder les dossiers.
-    # L'entrypoint de l'image officielle utilisera cette variable.
-    - AIRFLOW_UID=50000 
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__CORE__LOAD_EXAMPLES=False
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+    # Variable pour pointer vers le fichier de credentials monté
+    - GOOGLE_APPLICATION_CREDENTIALS=/opt/gcp/credentials.json
   volumes:
-    - ./dags:/opt/airflow/dags
+    - .:/opt/airflow
+    - ./dags:/opt/airflow/dags:ro
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
+    # On monte le dossier contenant les credentials
+    - ./gcp:/opt/airflow/gcp:ro
+    - ./src:/opt/airflow/src:ro
+    # On monte le socket Docker pour permettre à Airflow de lancer des conteneurs
     - /var/run/docker.sock:/var/run/docker.sock
-  user: "${AIRFLOW_UID:-50000}"
+    # On monte tout le projet pour que les Dockerfiles soient accessibles au build
+    - .:/opt/project
+  user: "${AIRFLOW_UID:-50000}" # Évite les problèmes de permission sur les fichiers créés
 
 services:
   postgres:
@@ -55,7 +58,7 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
-    command: airflow scheduler
+    command: scheduler
     restart: on-failure
 
   airflow-webserver:
@@ -66,7 +69,7 @@ services:
         condition: service_started
     ports:
       - "8080:8080"
-    command: airflow webserver
+    command: webserver
     restart: on-failure
 
 volumes:
