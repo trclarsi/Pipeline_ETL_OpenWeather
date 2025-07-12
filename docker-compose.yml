@@ -1,26 +1,6 @@
+# Fichier : docker-compose.yml
 version: '3.8'
-
-x-airflow-common: &airflow-common
-  image: apache/airflow:2.9.2-python3.11
-  environment:
-    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    # Variable pour pointer vers le fichier de credentials monté 111
-    - GOOGLE_APPLICATION_CREDENTIALS=/opt/gcp/credentials.json
-  volumes:
-    - .:/opt/airflow
-    - ./dags:/opt/airflow/dags:ro
-    - ./logs:/opt/airflow/logs
-    - ./plugins:/opt/airflow/plugins
-    # On monte le dossier contenant les credentials
-    - ./gcp:/opt/airflow/gcp:ro
-    - ./src:/opt/airflow/src:ro
-    # On monte le socket Docker pour permettre à Airflow de lancer des conteneurs
-    - /var/run/docker.sock:/var/run/docker.sock
-    # On monte tout le projet pour que les Dockerfiles soient accessibles au build
-    - .:/opt/project
-  user: "${AIRFLOW_UID:-50000}" # Évite les problèmes de permission sur les fichiers créés
+name: airflow-weather-pipeline
 
 services:
   postgres:
@@ -32,43 +12,50 @@ services:
       - POSTGRES_DB=airflow
     volumes:
       - airflow_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
+  # Ce service est juste là pour construire notre image personnalisée.111
+  custom-airflow-image:
+    image: custom-airflow-weather:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+
+  # Tous les services suivants utilisent notre image personnalisée.
   airflow-init:
-    <<: *airflow-common
+    image: custom-airflow-weather:latest
     container_name: airflow_init
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     command: >
-      bash -c "
-        airflow db init &&
-        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
-        airflow variables set 'openweather_api_key' 'VOTRE_CLÉ_API_ICI' &&
-        airflow variables set 'google_cloud_project' 'tr-weather-pipeline-2025'
-      "
+      bash -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
 
   airflow-scheduler:
-    <<: *airflow-common
+    image: custom-airflow-weather:latest
     container_name: airflow_scheduler
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      - airflow-init
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
     restart: on-failure
 
   airflow-webserver:
-    <<: *airflow-common
+    image: custom-airflow-weather:latest
     container_name: airflow_webserver
     depends_on:
-      airflow-scheduler:
-        condition: service_started
+      - airflow-scheduler
     ports:
       - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
     command: webserver
     restart: on-failure
 
