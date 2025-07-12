@@ -1,7 +1,7 @@
 # On part d'une image Python simple et propre
 FROM python:3.9-slim
 
-USER airflow
+#USER airflow
 # On définit un répertoire de travail
 WORKDIR /app
 
