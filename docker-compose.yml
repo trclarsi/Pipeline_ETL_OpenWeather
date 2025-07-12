@@ -12,52 +12,109 @@ services:
       - POSTGRES_DB=airflow
     volumes:
       - airflow_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
 
-  # Ce service est juste là pour construire notre image personnalisée.111
+  # Service pour construire l'image personnalisée
   custom-airflow-image:
     image: custom-airflow-weather:latest
     build:
       context: .
-      dockerfile: Dockerfile.airflow
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
 
-  # Tous les services suivants utilisent notre image personnalisée.
+  # Service d'initialisation de la base de données
   airflow-init:
     image: custom-airflow-weather:latest
     container_name: airflow_init
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
     command: >
-      bash -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
+      bash -c "
+        airflow db migrate &&
+        airflow users create 
+          --username admin 
+          --password admin 
+          --firstname Admin 
+          --lastname User 
+          --role Admin 
+          --email admin@example.com || true
+      "
+    restart: "no"
 
+  # Scheduler Airflow
   airflow-scheduler:
     image: custom-airflow-weather:latest
     container_name: airflow_scheduler
     depends_on:
-      - airflow-init
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
-    restart: on-failure
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $$(hostname)"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
+  # Webserver Airflow
   airflow-webserver:
     image: custom-airflow-weather:latest
     container_name: airflow_webserver
     depends_on:
-      - airflow-scheduler
-    ports:
-      - "8080:8080"
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__FERNET_KEY=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
     command: webserver
-    restart: on-failure
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
 volumes:
   airflow_postgres_data:

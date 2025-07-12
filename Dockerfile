@@ -1,18 +1,28 @@
-# On part d'une image Python simple et propre
-FROM python:3.9-slim
+# Dockerfile.airflow
+FROM apache/airflow:2.8.0-python3.9
 
-#USER airflow
-# On définit un répertoire de travail
-WORKDIR /app
+# Basculer vers l'utilisateur root pour installer des packages système
+USER root
 
-# On copie le fichier des dépendances
-COPY requirements.txt .
+# Installer les dépendances système nécessaires
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
-# On installe les dépendances
-# Note: On n'installe plus pyspark ici, car il sera dans sa propre image
-RUN pip install --no-cache-dir -r requirements.txt
+# Basculer vers l'utilisateur airflow
+USER airflow
 
-# On copie notre code source
-COPY src/ .
+# Copier et installer les requirements Python
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Cette image ne sera pas lancée directement, elle sera utilisée par Airflow.
+# Créer les répertoires nécessaires
+RUN mkdir -p /opt/airflow/dags /opt/airflow/logs /opt/airflow/plugins
+
+# Copier le code source
+COPY --chown=airflow:airflow src/ /opt/airflow/
+
+# Définir le répertoire de travail
+WORKDIR /opt/airflow
