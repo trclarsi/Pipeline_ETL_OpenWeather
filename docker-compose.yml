@@ -6,7 +6,7 @@ x-airflow-common: &airflow-common
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__CORE__LOAD_EXAMPLES=False
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    # Variable pour pointer vers le fichier de credentials monté
+    # Variable pour pointer vers le fichier de credentials monté 111
     - GOOGLE_APPLICATION_CREDENTIALS=/opt/gcp/credentials.json
   volumes:
     - .:/opt/airflow
