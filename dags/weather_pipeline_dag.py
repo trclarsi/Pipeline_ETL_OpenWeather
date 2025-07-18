@@ -41,8 +41,8 @@ with DAG(
     task_extract = DockerOperator(
         task_id="extract_from_api_to_gcs",
         image="weather-pipeline/extractor",
-        pull_policy="NEVER",
-        #command="python extract.py",
+       # pull_policy="NEVER",
+        command="python extract.py",
         auto_remove=True,
         environment=env_vars,
         #mounts=[gcp_credentials_mount],
@@ -54,7 +54,7 @@ with DAG(
     task_transform = DockerOperator(
         task_id="transform_in_spark_and_load_to_bq",
         image="weather-pipeline/transformer",
-        pull_policy="NEVER",
+       # pull_policy="NEVER",
        # mount_tmp_dir=False,
        # command="spark-submit transform.py",
         auto_remove=True,

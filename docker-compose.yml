@@ -8,6 +8,9 @@ x-airflow-common: &airflow-common
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     # Variable pour pointer vers le fichier de credentials monté
     - GOOGLE_APPLICATION_CREDENTIALS=/opt/gcp/credentials.json
+#   user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+ # user: "${AIRFLOW_UID:-50000}"
+  user: "0:0"
   volumes:
     - .:/opt/airflow
     - ./dags:/opt/airflow/dags:ro
@@ -20,7 +23,7 @@ x-airflow-common: &airflow-common
     - /var/run/docker.sock:/var/run/docker.sock
     # On monte tout le projet pour que les Dockerfiles soient accessibles au build
     - .:/opt/project
-  user: "${AIRFLOW_UID:-50000}" # Évite les problèmes de permission sur les fichiers créés
+#  user: "${AIRFLOW_UID:-50000}" # Évite les problèmes de permission sur les fichiers créés
 
 services:
   postgres:
@@ -48,7 +51,7 @@ services:
       bash -c "
         airflow db init &&
         airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
-        airflow variables set 'openweather_api_key' 'VOTRE_CLÉ_API_ICI' &&
+        airflow variables set 'openweather_api_key' '77703079fef55ae27765a4e7553e28e9' &&
         airflow variables set 'google_cloud_project' 'tr-weather-pipeline-2025'
       "
 
