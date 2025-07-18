@@ -1,5 +1,5 @@
 
-# On commence par déclarer le fournisseur de services cloud.
+# le fournisseur de services cloud.
 
 provider "google" {
   
@@ -19,15 +19,10 @@ resource "google_bigquery_dataset" "data_warehouse" {
   location    = "EU"
 }
 
-
-
-# -----------------------------------------------------------------
-# Ressource 3 : Bucket temporaire pour les écritures BigQuery
-# -----------------------------------------------------------------
-# Spark a besoin d'un bucket temporaire pour écrire les données
+# bucket temporaire pour écrire les données
 # avant de les charger dans BigQuery.
 resource "google_storage_bucket" "bq_temp_bucket" {
-  name     = "tr-weather-pipeline-bq-temp-2025" # Doit être unique au monde
+  name     = "tr-weather-pipeline-bq-temp-2025" 
   location = "EU"
   storage_class = "STANDARD"
 

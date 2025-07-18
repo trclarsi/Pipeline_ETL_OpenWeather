@@ -2,28 +2,7 @@ from __future__ import annotations
 import pendulum
 from airflow.models.dag import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
-#from docker.types import Mount
 
-# On définit le chemin absolu une seule fois.
-# C'est VOTRE solution, elle est parfaite pour votre environnement Windows.
-#HOST_GCP_PATH = 'D:/Academique/Projet/pipeline ETL/gcp'
-
-# On crée l'objet Mount une seule fois pour le réutiliser.
-#gcp_credentials_mount = Mount(
-#    source=HOST_GCP_PATH,
-#    target='/gcp',
-#    type='bind',
-#    read_only=True
-#)
-
-# On définit les variables d'environnement une seule fois pour les réutiliser.
-#common_env_vars = {
-    # Ces macros lisent les Variables Airflow que vous créerez dans l'UI.
-#    "OPENWEATHER_API_KEY": "{{ var.value.openweather_api_key }}",
-#    "GOOGLE_CLOUD_PROJECT": "{{ var.value.google_cloud_project }}",
-    # Le chemin des credentials A L'INTERIEUR du conteneur de la tâche.
-#    "GOOGLE_APPLICATION_CREDENTIALS": "/gcp/credentials.json",
-#}
 
 with DAG(
     dag_id="weather_elt_pipeline_docker_cloud",

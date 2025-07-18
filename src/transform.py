@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_unixtime, col, explode, round
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, LongType, TimestampType
@@ -21,7 +22,6 @@ def get_latest_file_from_gcs(bucket_name):
     return f"gs://{bucket_name}/{latest_blob.name}"
 
 def get_project_id():
-    """Récupère le project ID de GCP"""
     try:
         # Méthode 1: Variable d'environnement
         project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -29,10 +29,8 @@ def get_project_id():
             return project_id
         
         # Méthode 2: Metadata service (pour les VMs GCP)
-        import subprocess
         result = subprocess.run([
-            "gcloud", "config", "get-value", "project"
-        ], capture_output=True, text=True)
+            "gcloud", "config", "get-value", "project"], capture_output=True, text=True)
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
         
